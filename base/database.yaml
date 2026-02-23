@@ -29,7 +29,6 @@ groups:
         replication:
           replicas: 2
           sync_interval_secs: 30
-          pre_snapshot: "docker exec $(docker ps -qf name=postgres) pg_ctl checkpoint -D /var/lib/postgresql/data || true"
 
     tasks:
       - name: postgres
