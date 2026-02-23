@@ -1,0 +1,55 @@
+# Prod: 3 replicas, live payments, 3x replication with compression
+groups:
+  - name: orders
+    count: 3
+    scaling:
+      min: 2
+      max: 6
+      metric: cpu
+      target: 65
+      cooldown: 90
+    volumes:
+      - name: order-data
+        volume_type: replicated
+        replication:
+          replicas: 3
+          sync_interval_secs: 15
+          compression:
+            algorithm: zstd
+            level: 3
+    tasks:
+      - name: order-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=order-service-ok", "-listen=:8083"]
+        ports:
+          - label: http
+            container: 8083
+            host: 0
+        resources:
+          cpu: 500
+          memory: 512
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 20
+        mounts:
+          - volume: order-data
+            destination: /data/orders
+        env:
+          DB_HOST: "order-db"
+          DB_PORT: "5432"
+          DB_NAME: "orders_prod"
+          PAYMENT_GATEWAY: "stripe"
+          LOG_LEVEL: "warn"
+        labels:
+          tier: backend
+          tag.orders: "true"
+          tag.critical: "true"
+          version: "1.0.0"
+          environment: "prod"
+        critical: true

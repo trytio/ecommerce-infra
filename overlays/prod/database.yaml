@@ -1,0 +1,46 @@
+# Prod: full resources, 3x replication with compression
+groups:
+  - name: postgres
+    count: 1
+    volumes:
+      - name: pg-data
+        volume_type: replicated
+        replication:
+          replicas: 3
+          sync_interval_secs: 15
+          compression:
+            algorithm: zstd
+            level: 3
+          pre_snapshot: "docker exec $(docker ps -qf name=postgres) pg_ctl checkpoint -D /var/lib/postgresql/data || true"
+    tasks:
+      - name: postgres
+        image: "postgres:16-alpine"
+        ports:
+          - label: db
+            container: 5432
+            host: 0
+        resources:
+          cpu: 500
+          memory: 1024
+        health_check:
+          type: tcp
+          port_label: db
+          interval_secs: 15
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 30
+        mounts:
+          - volume: pg-data
+            destination: /var/lib/postgresql/data
+        env:
+          POSTGRES_DB: "ecommerce_prod"
+          POSTGRES_USER: "app"
+          POSTGRES_PASSWORD: "use-carlos-secrets-in-prod"
+        labels:
+          tier: data
+          tag.database: "true"
+          tag.critical: "true"
+          version: "16.0"
+          environment: "prod"
+        critical: true

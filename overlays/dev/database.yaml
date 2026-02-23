@@ -1,0 +1,42 @@
+# Dev: lower resources, dev DB credentials
+groups:
+  - name: postgres
+    count: 1
+    volumes:
+      - name: pg-data
+        volume_type: replicated
+        replication:
+          replicas: 2
+          sync_interval_secs: 30
+    tasks:
+      - name: postgres
+        image: "postgres:16-alpine"
+        ports:
+          - label: db
+            container: 5432
+            host: 0
+        resources:
+          cpu: 100
+          memory: 256
+        health_check:
+          type: tcp
+          port_label: db
+          interval_secs: 15
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 30
+        mounts:
+          - volume: pg-data
+            destination: /var/lib/postgresql/data
+        env:
+          POSTGRES_DB: "ecommerce_dev"
+          POSTGRES_USER: "app"
+          POSTGRES_PASSWORD: "devpass123"
+        labels:
+          tier: data
+          tag.database: "true"
+          tag.critical: "true"
+          version: "16.0"
+          environment: "dev"
+        critical: true

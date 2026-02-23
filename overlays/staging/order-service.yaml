@@ -1,0 +1,46 @@
+# Staging: 2 replicas, test payment gateway
+groups:
+  - name: orders
+    count: 2
+    volumes:
+      - name: order-data
+        volume_type: replicated
+        replication:
+          replicas: 2
+          sync_interval_secs: 30
+    tasks:
+      - name: order-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=order-service-ok", "-listen=:8083"]
+        ports:
+          - label: http
+            container: 8083
+            host: 0
+        resources:
+          cpu: 250
+          memory: 256
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 20
+        mounts:
+          - volume: order-data
+            destination: /data/orders
+        env:
+          DB_HOST: "order-db"
+          DB_PORT: "5432"
+          DB_NAME: "orders_staging"
+          PAYMENT_GATEWAY: "stripe-test"
+          LOG_LEVEL: "info"
+        labels:
+          tier: backend
+          tag.orders: "true"
+          tag.critical: "true"
+          version: "1.0.0"
+          environment: "staging"
+        critical: true

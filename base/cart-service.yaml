@@ -1,0 +1,53 @@
+# Cart Service — Manages shopping cart sessions.
+# Uses Redis for fast cart state with TTL-based expiry.
+
+name: cart-service
+job_type: service
+namespace: default
+
+update:
+  max_parallel: 1
+  stagger_secs: 30
+  health_deadline_secs: 120
+  on_failure: rollback
+  auto_revert: true
+  canary: 0
+
+groups:
+  - name: cart
+    count: 2
+    strategy: spread
+
+    restart:
+      mode: on-failure
+      max_attempts: 5
+      delay_secs: 5
+
+    tasks:
+      - name: cart-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=cart-service-ok", "-listen=:8082"]
+        ports:
+          - label: http
+            container: 8082
+            host: 0
+        resources:
+          cpu: 150
+          memory: 128
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 15
+        env:
+          REDIS_HOST: "cart-redis"
+          REDIS_PORT: "6379"
+          CART_TTL_HOURS: "72"
+        labels:
+          tier: backend
+          tag.cart: "true"
+          version: "1.0.0"

@@ -1,0 +1,34 @@
+# Staging: 2 replicas, staging config
+groups:
+  - name: cart
+    count: 2
+    tasks:
+      - name: cart-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=cart-service-ok", "-listen=:8082"]
+        ports:
+          - label: http
+            container: 8082
+            host: 0
+        resources:
+          cpu: 150
+          memory: 128
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 15
+        env:
+          REDIS_HOST: "cart-redis"
+          REDIS_PORT: "6379"
+          CART_TTL_HOURS: "48"
+          LOG_LEVEL: "info"
+        labels:
+          tier: backend
+          tag.cart: "true"
+          version: "1.0.0"
+          environment: "staging"

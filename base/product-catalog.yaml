@@ -1,0 +1,53 @@
+# Product Catalog — Manages product listings, inventory, and search.
+# Backed by PostgreSQL for persistent product data.
+
+name: product-catalog
+job_type: service
+namespace: default
+
+update:
+  max_parallel: 1
+  stagger_secs: 30
+  health_deadline_secs: 120
+  on_failure: rollback
+  auto_revert: true
+  canary: 0
+
+groups:
+  - name: catalog
+    count: 2
+    strategy: spread
+
+    restart:
+      mode: on-failure
+      max_attempts: 5
+      delay_secs: 5
+
+    tasks:
+      - name: catalog-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=product-catalog-ok", "-listen=:8081"]
+        ports:
+          - label: http
+            container: 8081
+            host: 0
+        resources:
+          cpu: 200
+          memory: 256
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 15
+        env:
+          DB_HOST: "catalog-db"
+          DB_PORT: "5432"
+          DB_NAME: "products"
+        labels:
+          tier: backend
+          tag.catalog: "true"
+          version: "1.0.0"

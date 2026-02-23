@@ -1,0 +1,66 @@
+# Order Service — Processes checkout, payment, and order fulfillment.
+# Critical path: uses replicated volumes for order data durability.
+
+name: order-service
+job_type: service
+namespace: default
+
+update:
+  max_parallel: 1
+  stagger_secs: 60
+  health_deadline_secs: 180
+  on_failure: rollback
+  auto_revert: true
+  canary: 0
+
+groups:
+  - name: orders
+    count: 2
+    strategy: spread
+
+    restart:
+      mode: on-failure
+      max_attempts: 3
+      delay_secs: 10
+
+    volumes:
+      - name: order-data
+        volume_type: replicated
+        replication:
+          replicas: 2
+          sync_interval_secs: 30
+
+    tasks:
+      - name: order-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=order-service-ok", "-listen=:8083"]
+        ports:
+          - label: http
+            container: 8083
+            host: 0
+        resources:
+          cpu: 300
+          memory: 256
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 20
+        mounts:
+          - volume: order-data
+            destination: /data/orders
+        env:
+          DB_HOST: "order-db"
+          DB_PORT: "5432"
+          DB_NAME: "orders"
+          PAYMENT_GATEWAY: "stripe"
+        labels:
+          tier: backend
+          tag.orders: "true"
+          tag.critical: "true"
+          version: "1.0.0"
+        critical: true

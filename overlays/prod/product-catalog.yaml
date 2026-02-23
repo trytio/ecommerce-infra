@@ -1,0 +1,40 @@
+# Prod: 3+ replicas, autoscaling, prod DB
+groups:
+  - name: catalog
+    count: 3
+    scaling:
+      min: 2
+      max: 8
+      metric: cpu
+      target: 70
+      cooldown: 60
+    tasks:
+      - name: catalog-api
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=product-catalog-ok", "-listen=:8081"]
+        ports:
+          - label: http
+            container: 8081
+            host: 0
+        resources:
+          cpu: 500
+          memory: 512
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 15
+        env:
+          DB_HOST: "catalog-db"
+          DB_PORT: "5432"
+          DB_NAME: "products_prod"
+          LOG_LEVEL: "warn"
+        labels:
+          tier: backend
+          tag.catalog: "true"
+          version: "1.0.0"
+          environment: "prod"

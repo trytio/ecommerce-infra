@@ -1,0 +1,47 @@
+# Cache Layer — Shared Redis for session state and product cache.
+# Used by storefront, cart-service, and product-catalog.
+
+name: cache
+job_type: service
+namespace: default
+
+update:
+  max_parallel: 1
+  stagger_secs: 15
+  health_deadline_secs: 60
+  on_failure: rollback
+  auto_revert: true
+  canary: 0
+
+groups:
+  - name: redis
+    count: 2
+    strategy: spread
+
+    restart:
+      mode: on-failure
+      max_attempts: 5
+      delay_secs: 5
+
+    tasks:
+      - name: redis
+        image: "redis:7-alpine"
+        ports:
+          - label: redis
+            container: 6379
+            host: 0
+        resources:
+          cpu: 100
+          memory: 128
+        health_check:
+          type: tcp
+          port_label: redis
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 10
+        labels:
+          tier: data
+          tag.cache: "true"
+          version: "7.0"

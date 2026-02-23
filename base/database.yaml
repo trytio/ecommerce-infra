@@ -1,0 +1,64 @@
+# Database — PostgreSQL for product catalog and order data.
+# Uses replicated volumes for durability across nodes.
+
+name: database
+job_type: service
+namespace: default
+
+update:
+  max_parallel: 1
+  stagger_secs: 60
+  health_deadline_secs: 180
+  on_failure: rollback
+  auto_revert: true
+  canary: 0
+
+groups:
+  - name: postgres
+    count: 1
+    strategy: binpack
+
+    restart:
+      mode: on-failure
+      max_attempts: 3
+      delay_secs: 10
+
+    volumes:
+      - name: pg-data
+        volume_type: replicated
+        replication:
+          replicas: 2
+          sync_interval_secs: 30
+          pre_snapshot: "docker exec $(docker ps -qf name=postgres) pg_ctl checkpoint -D /var/lib/postgresql/data || true"
+
+    tasks:
+      - name: postgres
+        image: "postgres:16-alpine"
+        ports:
+          - label: db
+            container: 5432
+            host: 0
+        resources:
+          cpu: 300
+          memory: 512
+        health_check:
+          type: tcp
+          port_label: db
+          interval_secs: 15
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 30
+        mounts:
+          - volume: pg-data
+            destination: /var/lib/postgresql/data
+        env:
+          POSTGRES_DB: "ecommerce"
+          POSTGRES_USER: "app"
+          POSTGRES_PASSWORD: "changeme-in-overlay"
+        labels:
+          tier: data
+          tag.database: "true"
+          tag.critical: "true"
+          version: "16.0"
+        critical: true

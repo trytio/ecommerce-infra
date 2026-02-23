@@ -1,0 +1,27 @@
+# Staging: 2 replicas, more memory
+groups:
+  - name: redis
+    count: 2
+    tasks:
+      - name: redis
+        image: "redis:7-alpine"
+        ports:
+          - label: redis
+            container: 6379
+            host: 0
+        resources:
+          cpu: 100
+          memory: 128
+        health_check:
+          type: tcp
+          port_label: redis
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 10
+        labels:
+          tier: data
+          tag.cache: "true"
+          version: "7.0"
+          environment: "staging"

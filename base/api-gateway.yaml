@@ -1,0 +1,52 @@
+# API Gateway — Routes traffic to backend microservices.
+# Handles auth validation, rate limiting, request routing.
+
+name: api-gateway
+job_type: service
+namespace: default
+
+update:
+  max_parallel: 1
+  stagger_secs: 30
+  health_deadline_secs: 120
+  on_failure: rollback
+  auto_revert: true
+  canary: 0
+
+groups:
+  - name: gateway
+    count: 2
+    strategy: spread
+
+    restart:
+      mode: on-failure
+      max_attempts: 5
+      delay_secs: 5
+
+    tasks:
+      - name: echo
+        image: "hashicorp/http-echo:latest"
+        command: ["-text=api-gateway-ok", "-listen=:8080"]
+        ports:
+          - label: http
+            container: 8080
+            host: 0
+        resources:
+          cpu: 200
+          memory: 128
+        health_check:
+          type: http
+          path: /
+          port_label: http
+          interval_secs: 10
+          timeout_secs: 5
+          unhealthy_threshold: 3
+          healthy_threshold: 2
+          grace_period_secs: 15
+        env:
+          SERVICE_NAME: "api-gateway"
+          LOG_LEVEL: "info"
+        labels:
+          tier: gateway
+          tag.api: "true"
+          version: "1.0.0"
