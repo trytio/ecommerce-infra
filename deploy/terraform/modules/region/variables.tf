@@ -1,0 +1,14 @@
+variable "region_name"    { type = string }
+variable "vpc_cidr"       { type = string }
+variable "subnet_cidr"    { type = string }
+variable "az"             { type = string }
+variable "ami_id"         { type = string }
+variable "key_name"       { type = string }
+variable "instance_type"  { type = string }
+variable "clients_count"  { type = number }
+variable "client_cpu"     { type = number }
+variable "client_memory"  { type = number }
+variable "s3_bucket"      { type = string }
+variable "s3_key"         { type = string }
+variable "include_router" { type = bool }
+variable "peer_vpc_cidr"  { type = string }
